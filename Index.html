@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Front Line - Guerra en el Frente</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+            color: white;
+        }
+        
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            margin: 20px auto;
+            border: 4px solid #444;
+            box-shadow: 0 0 20px #0af;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
+        }
+        
+        #game-canvas {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        #health-bar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 200px;
+            height: 20px;
+            background-color: #333;
+            border: 2px solid #fff;
+        }
+        
+        #health-fill {
+            height: 100%;
+            width: 100%;
+            background-color: #f00;
+            transition: width 0.3s;
+        }
+        
+        #ammo-count {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 16px;
+            color: #fff;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        #score {
+            position: absolute;
+            top: 40px;
+            left: 10px;
+            font-size: 16px;
+            color: #fff;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        #wave {
+            position: absolute;
+            top: 40px;
+            right: 10px;
+            font-size: 16px;
+            color: #fff;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        #menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        #pause-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 75;
+        }
+        
+        .btn {
+            background-color: #333;
+            color: white;
+            border: 2px solid #0af;
+            padding: 10px 20px;
+            margin: 10px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 14px;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background-color: #0af;
+            color: black;
+            transform: scale(1.05);
+        }
+        
+        .title {
+            font-size: 36px;
+            color: #0af;
+            text-shadow: 4px 4px 0 #000;
+            margin-bottom: 30px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #fff;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #aaa;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas" width="800" height="500"></canvas>
+        
+        <div id="ui-overlay">
+            <div id="health-bar">
+                <div id="health-fill"></div>
+            </div>
+            <div id="ammo-count">AMMO: 30/90</div>
+            <div id="score">SCORE: 0</div>
+            <div id="wave">WAVE: 1</div>
+            
+            <div id="controls">
+                Movimiento: WASD<br>
+                Disparar: ESPACIO<br>
+                Recargar: R<br>
+                Pausa: P
+            </div>
+            
+            <div id="instructions">
+                Sobrevive a las oleadas enemigas<br>
+                Elimina a todos para avanzar
+            </div>
+        </div>
+        
+        <div id="menu">
+            <h1 class="title">FRONT LINE</h1>
+            <p class="subtitle">Estás en el frente de batalla. Sobrevive a las oleadas enemigas y demuestra tu valor como soldado.</p>
+            <button id="start-btn" class="btn">INICIAR BATALLA</button>
+            <button id="how-to-play-btn" class="btn">CÓMO JUGAR</button>
+        </div>
+        
+        <div id="pause-menu">
+            <h1 class="title">JUEGO EN PAUSA</h1>
+            <button id="resume-btn" class="btn">CONTINUAR</button>
+            <button id="restart-btn" class="btn">REINICIAR</button>
+            <button id="menu-btn" class="btn">MENÚ PRINCIPAL</button>
+        </div>
+        
+        <div id="game-over">
+            <h1 class="title">MISIÓN FALLIDA</h1>
+            <p id="final-score" class="subtitle">PUNTUACIÓN: 0</p>
+            <button id="try-again-btn" class="btn">INTENTAR DE NUEVO</button>
+            <button id="main-menu-btn" class="btn">MENÚ PRINCIPAL</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Configuración del juego
+            const canvas = document.getElementById('game-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Elementos de la UI
+            const healthFill = document.getElementById('health-fill');
+            const ammoCount = document.getElementById('ammo-count');
+            const scoreElement = document.getElementById('score');
+            const waveElement = document.getElementById('wave');
+            
+            // Menús
+            const menu = document.getElementById('menu');
+            const pauseMenu = document.getElementById('pause-menu');
+            const gameOverMenu = document.getElementById('game-over');
+            const finalScoreElement = document.getElementById('final-score');
+            
+            // Botones
+            const startBtn = document.getElementById('start-btn');
+            const howToPlayBtn = document.getElementById('how-to-play-btn');
+            const resumeBtn = document.getElementById('resume-btn');
+            const restartBtn = document.getElementById('restart-btn');
+            const menuBtn = document.getElementById('menu-btn');
+            const tryAgainBtn = document.getElementById('try-again-btn');
+            const mainMenuBtn = document.getElementById('main-menu-btn');
+            
+            // Variables del juego
+            let gameRunning = false;
+            let gamePaused = false;
+            let score = 0;
+            let wave = 1;
+            let enemies = [];
+            let bullets = [];
+            let enemyBullets = [];
+            let explosions = [];
+            let powerUps = [];
+            let lastTime = 0;
+            let keys = {};
+            let player = {
+                x: 100,
+                y: 250,
+                width: 40,
+                height: 60,
+                speed: 5,
+                health: 100,
+                maxHealth: 100,
+                ammo: 30,
+                maxAmmo: 30,
+                totalAmmo: 90,
+                reloading: false,
+                reloadTime: 2000,
+                lastShot: 0,
+                fireRate: 200,
+                color: '#0af'
+            };
+            
+            // Sprites (simplificados para este ejemplo)
+            const sprites = {
+                player: {
+                    body: '#0af',
+                    helmet: '#333',
+                    face: '#ffdbac',
+                    weapon: '#555'
+                },
+                enemy: {
+                    body: '#f00',
+                    helmet: '#222',
+                    face: '#ffdbac',
+                    weapon: '#555'
+                },
+                bullet: '#ff0',
+                enemyBullet: '#f80',
+                explosion: ['#f80', '#f00', '#ff0'],
+                healthPack: '#0f0',
+                ammoPack: '#ff0'
+            };
+            
+            // Event listeners para teclado
+            window.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+                
+                // Pausar el juego con P
+                if (e.key.toLowerCase() === 'p' && gameRunning) {
+                    togglePause();
+                }
+                
+                // Recargar con R
+                if (e.key.toLowerCase() === 'r' && gameRunning && !gamePaused && !player.reloading) {
+                    reloadWeapon();
+                }
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+            
+            // Event listeners para botones
+            startBtn.addEventListener('click', startGame);
+            howToPlayBtn.addEventListener('click', showHowToPlay);
+            resumeBtn.addEventListener('click', togglePause);
+            restartBtn.addEventListener('click', restartGame);
+            menuBtn.addEventListener('click', returnToMenu);
+            tryAgainBtn.addEventListener('click', startGame);
+            mainMenuBtn.addEventListener('click', returnToMenu);
+            
+            // Funciones del juego
+            function startGame() {
+                // Reiniciar variables del juego
+                score = 0;
+                wave = 1;
+                player.health = player.maxHealth;
+                player.ammo = player.maxAmmo;
+                player.totalAmmo = 90;
+                player.reloading = false;
+                enemies = [];
+                bullets = [];
+                enemyBullets = [];
+                explosions = [];
+                powerUps = [];
+                
+                // Actualizar UI
+                updateUI();
+                
+                // Ocultar menús
+                menu.style.display = 'none';
+                gameOverMenu.style.display = 'none';
+                
+                // Iniciar juego
+                gameRunning = true;
+                gamePaused = false;
+                lastTime = performance.now();
+                
+                // Generar primera oleada
+                spawnWave();
+                
+                // Iniciar bucle del juego
+                requestAnimationFrame(gameLoop);
+            }
+            
+            function showHowToPlay() {
+                alert("CONTROLES:\n\n- Movimiento: WASD\n- Disparar: ESPACIO\n- Recargar: R\n- Pausa: P\n\nOBJETIVO:\n\nSobrevive a las oleadas enemigas, elimina a todos los enemigos para avanzar a la siguiente oleada. Recolecta paquetes de salud y munición que aparecen al eliminar enemigos.");
+            }
+            
+            function togglePause() {
+                if (!gameRunning) return;
+                
+                gamePaused = !gamePaused;
+                pauseMenu.style.display = gamePaused ? 'flex' : 'none';
+            }
+            
+            function restartGame() {
+                togglePause();
+                startGame();
+            }
+            
+            function returnToMenu() {
+                gameRunning = false;
+                pauseMenu.style.display = 'none';
+                gameOverMenu.style.display = 'none';
+                menu.style.display = 'flex';
+            }
+            
+            function gameOver() {
+                gameRunning = false;
+                finalScoreElement.textContent = `PUNTUACIÓN: ${score}`;
+                gameOverMenu.style.display = 'flex';
+            }
+            
+            function updateUI() {
+                // Actualizar barra de salud
+                const healthPercent = (player.health / player.maxHealth) * 100;
+                healthFill.style.width = `${healthPercent}%`;
+                
+                // Actualizar munición
+                ammoCount.textContent = `AMMO: ${player.ammo}/${player.totalAmmo}`;
+                
+                // Actualizar puntuación y oleada
+                scoreElement.textContent = `SCORE: ${score}`;
+                waveElement.textContent = `WAVE: ${wave}`;
+            }
+            
+            function spawnWave() {
+                const enemyCount = 3 + wave * 2;
+                
+                for (let i = 0; i < enemyCount; i++) {
+                    // Posición aleatoria en el lado derecho del canvas
+                    const x = canvas.width + Math.random() * 200;
+                    const y = 50 + Math.random() * (canvas.height - 100);
+                    
+                    enemies.push({
+                        x: x,
+                        y: y,
+                        width: 40,
+                        height: 60,
+                        speed: 1 + Math.random() * 0.5,
+                        health: 30 + wave * 5,
+                        maxHealth: 30 + wave * 5,
+                        lastShot: 0,
+                        fireRate: 1500 + Math.random() * 1000,
+                        color: sprites.enemy.body
+                    });
+                }
+            }
+            
+            function reloadWeapon() {
+                if (player.totalAmmo <= 0 || player.ammo === player.maxAmmo) return;
+                
+                player.reloading = true;
+                
+                const neededAmmo = player.maxAmmo - player.ammo;
+                const ammoToAdd = Math.min(neededAmmo, player.totalAmmo);
+                
+                setTimeout(() => {
+                    player.ammo += ammoToAdd;
+                    player.totalAmmo -= ammoToAdd;
+                    player.reloading = false;
+                    updateUI();
+                }, player.reloadTime);
+            }
+            
+            function spawnPowerUp(x, y) {
+                // 30% de probabilidad de generar un power-up
+                if (Math.random() < 0.3) {
+                    const type = Math.random() < 0.5 ? 'health' : 'ammo';
+                    
+                    powerUps.push({
+                        x: x,
+                        y: y,
+                        width: 20,
+                        height: 20,
+                        type: type,
+                        color: type === 'health' ? sprites.healthPack : sprites.ammoPack
+                    });
+                }
+            }
+            
+            function checkCollisions() {
+                // Colisiones entre balas y enemigos
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const bullet = bullets[i];
+                    
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const enemy = enemies[j];
+                        
+                        if (
+                            bullet.x < enemy.x + enemy.width &&
+                            bullet.x + bullet.width > enemy.x &&
+                            bullet.y < enemy.y + enemy.height &&
+                            bullet.y + bullet.height > enemy.y
+                        ) {
+                            // Impacto en enemigo
+                            enemy.health -= 10;
+                            bullets.splice(i, 1);
+                            
+                            // Explosión
+                            explosions.push({
+                                x: bullet.x,
+                                y: bullet.y,
+                                radius: 10,
+                                maxRadius: 30,
+                                alpha: 1,
+                                color: sprites.explosion[Math.floor(Math.random() * sprites.explosion.length)]
+                            });
+                            
+                            if (enemy.health <= 0) {
+                                // Enemigo eliminado
+                                score += 50 + wave * 10;
+                                enemies.splice(j, 1);
+                                
+                                // Posible power-up
+                                spawnPowerUp(enemy.x, enemy.y);
+                                
+                                // Explosión más grande
+                                explosions.push({
+                                    x: enemy.x + enemy.width / 2,
+                                    y: enemy.y + enemy.height / 2,
+                                    radius: 20,
+                                    maxRadius: 50,
+                                    alpha: 1,
+                                    color: sprites.explosion[Math.floor(Math.random() * sprites.explosion.length)]
+                                });
+                            }
+                            
+                            updateUI();
+                            break;
+                        }
+                    }
+                }
+                
+                // Colisiones entre balas enemigas y jugador
+                for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                    const bullet = enemyBullets[i];
+                    
+                    if (
+                        bullet.x < player.x + player.width &&
+                        bullet.x + bullet.width > player.x &&
+                        bullet.y < player.y + player.height &&
+                        bullet.y + bullet.height > player.y
+                    ) {
+                        // Impacto en jugador
+                        player.health -= 10;
+                        enemyBullets.splice(i, 1);
+                        
+                        // Explosión
+                        explosions.push({
+                            x: bullet.x,
+                            y: bullet.y,
+                            radius: 10,
+                            maxRadius: 30,
+                            alpha: 1,
+                            color: sprites.explosion[Math.floor(Math.random() * sprites.explosion.length)]
+                        });
+                        
+                        updateUI();
+                        
+                        if (player.health <= 0) {
+                            gameOver();
+                            return;
+                        }
+                    }
+                }
+                
+                // Colisiones entre power-ups y jugador
+                for (let i = powerUps.length - 1; i >= 0; i--) {
+                    const powerUp = powerUps[i];
+                    
+                    if (
+                        powerUp.x < player.x + player.width &&
+                        powerUp.x + powerUp.width > player.x &&
+                        powerUp.y < player.y + player.height &&
+                        powerUp.y + powerUp.height > player.y
+                    ) {
+                        // Recolectar power-up
+                        if (powerUp.type === 'health') {
+                            player.health = Math.min(player.health + 30, player.maxHealth);
+                        } else {
+                            player.totalAmmo += 30;
+                        }
+                        
+                        powerUps.splice(i, 1);
+                        updateUI();
+                    }
+                }
+            }
+            
+            function update(deltaTime) {
+                if (gamePaused) return;
+                
+                // Movimiento del jugador
+                if (keys['w'] && player.y > 0) player.y -= player.speed;
+                if (keys['s'] && player.y < canvas.height - player.height) player.y += player.speed;
+                if (keys['a'] && player.x > 0) player.x -= player.speed;
+                if (keys['d'] && player.x < canvas.width - player.width) player.x += player.speed;
+                
+                // Disparar con espacio
+                if (keys[' '] && !player.reloading && player.ammo > 0) {
+                    const now = performance.now();
+                    if (now - player.lastShot > player.fireRate) {
+                        player.lastShot = now;
+                        player.ammo--;
+                        
+                        bullets.push({
+                            x: player.x + player.width,
+                            y: player.y + player.height / 2 - 2,
+                            width: 10,
+                            height: 4,
+                            speed: 10,
+                            color: sprites.bullet
+                        });
+                        
+                        updateUI();
+                    }
+                }
+                
+                // Movimiento de enemigos
+                enemies.forEach(enemy => {
+                    // Moverse hacia el jugador
+                    const dx = player.x - enemy.x;
+                    const dy = player.y - enemy.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance > 200) { // Mantener cierta distancia
+                        enemy.x += (dx / distance) * enemy.speed;
+                        enemy.y += (dy / distance) * enemy.speed;
+                    }
+                    
+                    // Disparar
+                    const now = performance.now();
+                    if (now - enemy.lastShot > enemy.fireRate) {
+                        enemy.lastShot = now;
+                        
+                        const angle = Math.atan2(
+                            player.y + player.height / 2 - (enemy.y + enemy.height / 2),
+                            player.x + player.width / 2 - (enemy.x + enemy.width / 2)
+                        );
+                        
+                        enemyBullets.push({
+                            x: enemy.x,
+                            y: enemy.y + enemy.height / 2 - 2,
+                            width: 10,
+                            height: 4,
+                            speed: 5,
+                            color: sprites.enemyBullet,
+                            angle: angle
+                        });
+                    }
+                });
+                
+                // Movimiento de balas del jugador
+                bullets.forEach(bullet => {
+                    bullet.x += bullet.speed;
+                });
+                
+                // Eliminar balas que salen de la pantalla
+                bullets = bullets.filter(bullet => bullet.x < canvas.width);
+                
+                // Movimiento de balas enemigas
+                enemyBullets.forEach(bullet => {
+                    bullet.x += Math.cos(bullet.angle) * bullet.speed;
+                    bullet.y += Math.sin(bullet.angle) * bullet.speed;
+                });
+                
+                // Eliminar balas enemigas que salen de la pantalla
+                enemyBullets = enemyBullets.filter(bullet => 
+                    bullet.x > -20 && bullet.x < canvas.width + 20 && 
+                    bullet.y > -20 && bullet.y < canvas.height + 20
+                );
+                
+                // Actualizar explosiones
+                explosions.forEach(explosion => {
+                    explosion.radius += 1;
+                    explosion.alpha -= 0.02;
+                });
+                
+                // Eliminar explosiones terminadas
+                explosions = explosions.filter(explosion => explosion.alpha > 0 && explosion.radius < explosion.maxRadius);
+                
+                // Verificar si la oleada está completa
+                if (enemies.length === 0) {
+                    wave++;
+                    spawnWave();
+                    updateUI();
+                }
+                
+                // Verificar colisiones
+                checkCollisions();
+            }
+            
+            function draw() {
+                // Limpiar canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Dibujar fondo (simplificado)
+                drawBackground();
+                
+                // Dibujar power-ups
+                powerUps.forEach(powerUp => {
+                    ctx.fillStyle = powerUp.color;
+                    ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
+                    
+                    // Dibujar icono según tipo
+                    ctx.fillStyle = '#000';
+                    if (powerUp.type === 'health') {
+                        // Cruz
+                        ctx.fillRect(powerUp.x + 8, powerUp.y + 4, 4, 12);
+                        ctx.fillRect(powerUp.x + 4, powerUp.y + 8, 12, 4);
+                    } else {
+                        // Munición
+                        ctx.fillRect(powerUp.x + 4, powerUp.y + 4, 12, 4);
+                        ctx.fillRect(powerUp.x + 8, powerUp.y + 8, 4, 4);
+                    }
+                });
+                
+                // Dibujar explosiones
+                explosions.forEach(explosion => {
+                    ctx.globalAlpha = explosion.alpha;
+                    ctx.fillStyle = explosion.color;
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                });
+                
+                // Dibujar balas del jugador
+                bullets.forEach(bullet => {
+                    ctx.fillStyle = bullet.color;
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                });
+                
+                // Dibujar balas enemigas
+                enemyBullets.forEach(bullet => {
+                    ctx.fillStyle = bullet.color;
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                });
+                
+                // Dibujar enemigos
+                enemies.forEach(enemy => {
+                    // Cuerpo
+                    ctx.fillStyle = enemy.color;
+                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    
+                    // Casco
+                    ctx.fillStyle = sprites.enemy.helmet;
+                    ctx.fillRect(enemy.x + 10, enemy.y, 20, 15);
+                    
+                    // Cara
+                    ctx.fillStyle = sprites.enemy.face;
+                    ctx.fillRect(enemy.x + 15, enemy.y + 15, 10, 10);
+                    
+                    // Arma
+                    ctx.fillStyle = sprites.enemy.weapon;
+                    ctx.fillRect(enemy.x - 10, enemy.y + 20, 20, 5);
+                    
+                    // Barra de salud
+                    const healthPercent = (enemy.health / enemy.maxHealth) * enemy.width;
+                    ctx.fillStyle = '#f00';
+                    ctx.fillRect(enemy.x, enemy.y - 10, healthPercent, 5);
+                    ctx.strokeStyle = '#000';
+                    ctx.strokeRect(enemy.x, enemy.y - 10, enemy.width, 5);
+                });
+                
+                // Dibujar jugador
+                // Cuerpo
+                ctx.fillStyle = player.color;
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                
+                // Casco
+                ctx.fillStyle = sprites.player.helmet;
+                ctx.fillRect(player.x + 10, player.y, 20, 15);
+                
+                // Cara
+                ctx.fillStyle = sprites.player.face;
+                ctx.fillRect(player.x + 15, player.y + 15, 10, 10);
+                
+                // Arma
+                ctx.fillStyle = sprites.player.weapon;
+                ctx.fillRect(player.x + player.width, player.y + 20, 30, 5);
+                
+                // Indicador de recarga
+                if (player.reloading) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    ctx.fillRect(player.x, player.y - 20, player.width, 10);
+                    ctx.fillStyle = '#0af';
+                    ctx.fillRect(player.x, player.y - 20, player.width * 0.5, 10);
+                }
+            }
+            
+            function drawBackground() {
+                // Fondo de batalla (simplificado)
+                ctx.fillStyle = '#2a4e6c';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Tierra
+                ctx.fillStyle = '#5a3d2b';
+                ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+                
+                // Trincheras
+                ctx.fillStyle = '#4a3928';
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height - 30);
+                for (let x = 0; x < canvas.width; x += 20) {
+                    ctx.lineTo(x, canvas.height - 30 + Math.sin(x / 30) * 10);
+                }
+                ctx.lineTo(canvas.width, canvas.height - 30);
+                ctx.lineTo(canvas.width, canvas.height);
+                ctx.lineTo(0, canvas.height);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Alambre de púas
+                ctx.strokeStyle = '#777';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height - 40);
+                for (let x = 0; x < canvas.width; x += 10) {
+                    ctx.lineTo(x, canvas.height - 40 + Math.sin(x / 15) * 5);
+                }
+                ctx.stroke();
+                
+                // Humo en el fondo
+                ctx.fillStyle = 'rgba(100, 100, 100, 0.3)';
+                for (let i = 0; i < 5; i++) {
+                    const size = 50 + Math.random() * 50;
+                    ctx.beginPath();
+                    ctx.arc(
+                        100 + Math.random() * (canvas.width - 200),
+                        canvas.height - 100 + Math.random() * 50,
+                        size,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+            }
+            
+            function gameLoop(timestamp) {
+                if (!gameRunning) return;
+                
+                const deltaTime = timestamp - lastTime;
+                lastTime = timestamp;
+                
+                update(deltaTime);
+                draw();
+                
+                requestAnimationFrame(gameLoop);
+            }
+        });
+    </script>
+</body>
+</html>
